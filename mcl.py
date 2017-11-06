@@ -67,7 +67,7 @@ def sensing():
     #receber ros
     v=2
     w=3
-    dist=(100,200)
+    dist=(100,200,80)
     return v,w,dist  
        
 def mcl():
@@ -85,9 +85,9 @@ def mcl():
    
     while True:
         sum_w = 0
-        x=0
-        y=0
-        teta=0
+        x=np.array([])
+        y=np.array([])
+        teta=np.array([])
         #--- lê sensor 
         v,w,position_s=sensing()
         
@@ -106,17 +106,26 @@ def mcl():
         #if  condition for resampling:
             #resample
         s_weight = np.sort(weights)
-        print(weights)
-        for i in range(50):
-            x += room[np.where(weights==s_weight[i])][0]
-            y += room[np.where(weights==s_weight[i])][1]
-            teta += room[np.where(weights==s_weight[i])][2]
-            
-        robot=(x/3,y/3,teta/3)
+        n=0
         
+        print(np.where(weights==s_weight[0])[0][0])
+        for i in range(100):     #weighted mean in a small window around the best particle
+            if s_weight[i]==s_weight[i-1]:
+                continue
+            for position in range(len(np.where(weights==s_weight[i])[0])):
+                n+=1
+                x = np.append(x,room[np.where(weights==s_weight[i])[0][position]][0])
+                y = np.append(y,room[np.where(weights==s_weight[i])[0][position]][1])
+                teta = np.append(teta,room[np.where(weights==s_weight[i])[0][position]][2])
+            if n ==50:
+                break
+            
+        robot=(np.median(x),np.median(y),np.median(teta))
+        print(robot)
         show(room,robot)
         print('ciclo')
         input()
+        
   #resampling se preciso
   # mensagens --- sensing DO!!!
   #clustering???
