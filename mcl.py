@@ -8,6 +8,7 @@ Created on Sat Nov  4 21:22:11 2017
 import math as m
 import random as r
 import numpy as np
+from resampling import Low_variance_resampling,stratified_resample,residual_resampling
 from matplotlib import pyplot
 
 LARGURA = 900
@@ -94,6 +95,7 @@ def mcl():
         #room = [ motion_update(particle) 
         new_prob=np.array([])
         s_weight = np.array([])
+        
         for particle in room:
             
             room[room.index(particle)] = motion_update(particle,v,w)
@@ -124,9 +126,16 @@ def mcl():
         print(robot)
         show(room,robot)
         print('ciclo')
+        room,weights=residual_resampling(weights,room)
+        #room,weights = stratified_resample(weights,room)
+        #if np.var(weights) !=0 :
+         #   if (1/np.var(weights))<(n_particles/2):
+          #      print("resampled")
+           #     room,weights = Low_variance_resampling(room,weights)
         input()
+        
         
   #resampling se preciso
   # mensagens --- sensing DO!!!
-  #clustering???
+  
 mcl()
