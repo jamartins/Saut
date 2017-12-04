@@ -15,7 +15,7 @@ from matplotlib import pyplot
 
 LARGURA = 900
 COMP = 1000
-
+IMG_COUNT = 0
 def show(room,final):
     
     pyplot.figure(figsize=(30.,30.))
@@ -32,8 +32,10 @@ def show(room,final):
     
     pyplot.gca().add_patch(pyplot.Circle((final[0],final[1]),15.,facecolor='#6666ff',edgecolor='#0000cc', alpha=0.5))
     pyplot.gca().add_patch(pyplot.Arrow(final[0], final[1], 30*m.cos(final[2]), 30*m.sin(final[2]), alpha=1., facecolor='#000000', edgecolor='#000000',width=15))
-                                 
+        
+    #IMG_COUNT = IMG_COUNT + 1                             
     pyplot.savefig('Particles')
+    
     
     
 def add_particle():
@@ -52,7 +54,7 @@ def gaussian_prob(particle,sensor):
     
     return (1/(m.sqrt(2*m.pi)*sigma)*m.e**exp)
 
-def motion_update(x,y,teta):   
+def motion_update(particle, x,y,teta):   
     if 0 < x < COMP and 0 < y < LARGURA:
         return ((x,y,teta))
     else:
@@ -123,16 +125,22 @@ def mcl():
         new_prob=np.array([])
         s_weight = np.array([])
 
-        fake_pos_s = (100,200,80)
+        fake_position_by_marker = (100,200,80)
         
         for particle in room:
             
-            room[room.index(particle)] = motion_update(xpos, ypos, tetaangl)
+            updated_particle = motion_update(xpos, ypos, tetaangl)
             #new_prob= np.append(new_prob,gaussian_prob(particle, (xpos, ypos, tetaangl)))
-            new_prob= np.append(new_prob,gaussian_prob(particle, fake_pos_s))
+            #if position exists:
+            new_prob= np.append(new_prob,gaussian_prob(updated_particle, fake_position_by_marker))
+            #print "new prob is :" + str(new_prob)
             sum_w += new_prob[-1]
+            room[room.index(particle)] = updated_particle
+
+
         
         weights = weights*new_prob
+        #print "sum w is :" + str(sum_w)
         weights = weights / sum_w #normalização
         
         #if  condition for resampling:
@@ -156,12 +164,12 @@ def mcl():
         print(robot)
         show(room,robot)
         print('ciclo')
-        room,weights=residual_resampling(weights,room)
+        #room,weights=residual_resampling(weights,room)
         #room,weights = stratified_resample(weights,room)
-        #if np.var(weights) !=0 :
-         #   if (1/np.var(weights))<(n_particles/2):
-          #      print("resampled")
-           #     room,weights = Low_variance_resampling(room,weights)
+        if np.var(weights) !=0 :
+        	if (1/np.var(weights))<(n_particles/2):
+        		print("resampled")
+        		room,weights = Low_variance_resampling(room,weights)
         timer = raw_input("what")
         
         

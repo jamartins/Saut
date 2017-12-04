@@ -5,6 +5,12 @@ Created on Sat Nov  4 21:22:11 2017
 @author: ritam
 
 """
+import shutil, os
+
+import rospy, tf
+from geometry_msgs.msg import PoseStamped
+
+
 import math as m
 import random as r
 import numpy as np
@@ -13,6 +19,47 @@ from matplotlib import pyplot
 
 LARGURA = 900
 COMP = 1000
+IMG_NR = 0
+
+
+class Sensor:
+    #x,y,yaw,seqnr, verbose
+
+
+    def __init__(self, verbose=False):
+        self.verbose = verbose
+        self.x = 0
+        self.y= 0
+        self.yaw=0
+        self.seqnr=-1
+
+        rospy.init_node('listener', anonymous=True)
+        topic = '/crazyflie/vrpn_client_node/crazyflie/pose' 
+        rospy.Subscriber(topic, PoseStamped, self.readingCallback)
+        if self.verbose:
+            print 'just subscribed ' + topic +  '\n'
+
+    def readingCallback(self, data):
+        if self.verbose:
+            print 'callbacked'
+        point = data.pose.position
+        quatrnion = data.pose.orientation
+        euler = tf.transformations.euler_from_quaternion((quatrnion.x, quatrnion.y, quatrnion.z, quatrnion.w))
+        self.x = point.x
+        self.y = point.y
+        self.yaw = euler[2]
+        self.seqnr = data.header.seq
+        if self.verbose:
+            print ("this is yaw :" + str(self.seqnr))
+            print ("I heard position " + str(point.x) + str(point.y) + str(point.z)  + ' and quat :'+ str(quatrnion.x) + str(quatrnion.y) + str(quatrnion.z) + str(quatrnion.w))
+    
+    def getReadings(self):
+        return (self.x, self.y, self.yaw)
+
+
+
+
+
 
 def show(room,final):
     
@@ -30,8 +77,14 @@ def show(room,final):
     
     pyplot.gca().add_patch(pyplot.Circle((final[0],final[1]),15.,facecolor='#6666ff',edgecolor='#0000cc', alpha=0.5))
     pyplot.gca().add_patch(pyplot.Arrow(final[0], final[1], 30*m.cos(final[2]), 30*m.sin(final[2]), alpha=1., facecolor='#000000', edgecolor='#000000',width=15))
-                                 
-    pyplot.savefig('Particles')
+    
+    global IMG_NR
+    if IMG_NR == 0:
+        shutil.rmtree('particles')
+        os.mkdir('particles')
+    IMG_NR += 1
+    imagename = 'particles/Particles' + str(IMG_NR)                             
+    pyplot.savefig(imagename)
     
     
 def add_particle():
@@ -50,31 +103,26 @@ def gaussian_prob(particle,sensor):
     
     return (1/(m.sqrt(2*m.pi)*sigma)*m.e**exp)
 
-def motion_update(particle,v,w):
-    dt= 1   #???
+def motion_update(particle,sensor):
+   
     
     x,y,teta=particle
     
-    x += v*dt*m.cos(teta)
-    y += v*dt*m.sin(teta)
-    teta += w*dt
+    x += sensor[0]
+    y += sensor[1]
+    teta += sensor[2]
     
     if 0 < x < COMP and 0 < y < LARGURA:
         return ((x,y,teta))
     else:
         return add_particle() #kidnapped
-  
-def sensing():
-    #receber ros
-    v=2
-    w=3
-    dist=(100,200,80)
-    return v,w,dist  
+ 
        
 def mcl():
     
     n_particles = 1500
     
+    sensor = Sensor()   
     #noise = n_particles*0.1 ?
     
     room=list()
@@ -90,16 +138,20 @@ def mcl():
         y=np.array([])
         teta=np.array([])
         #--- lê sensor 
-        v,w,position_s=sensing()
+
+        xpos, ypos, angle = sensor.getReadings()
         
         #room = [ motion_update(particle) 
         new_prob=np.array([])
         s_weight = np.array([])
         
+        fake_position_by_marker = (100,200,80)
+
         for particle in room:
             
-            room[room.index(particle)] = motion_update(particle,v,w)
-            new_prob= np.append(new_prob,gaussian_prob(particle,position_s))
+            room[room.index(particle)] = motion_update(particle, (xpos,ypos,angle))
+            #if position exists:
+            new_prob= np.append(new_prob,gaussian_prob(particle,fake_position_by_marker))
             sum_w += new_prob[-1]
         
         weights = weights*new_prob
@@ -126,13 +178,13 @@ def mcl():
         print(robot)
         show(room,robot)
         print('ciclo')
-        room,weights=residual_resampling(weights,room)
+        #room,weights=residual_resampling(weights,room)
         #room,weights = stratified_resample(weights,room)
-        #if np.var(weights) !=0 :
-         #   if (1/np.var(weights))<(n_particles/2):
-          #      print("resampled")
-           #     room,weights = Low_variance_resampling(room,weights)
-        input()
+        if np.var(weights) !=0 :
+            if (1/np.var(weights))<(n_particles/2):
+                print("resampled")
+                room,weights = Low_variance_resampling(room,weights)
+        nome = raw_input()
         
         
   #resampling se preciso
