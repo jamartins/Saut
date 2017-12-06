@@ -17,8 +17,8 @@ import numpy as np
 from resampling import Low_variance_resampling,stratified_resample,residual_resampling
 from matplotlib import pyplot
 
-LARGURA = 900
-COMP = 1000
+LARGURA = 90
+COMP = 100
 IMG_NR = 0
 
 
@@ -61,7 +61,7 @@ class Sensor:
 
 
 
-def show(room,final):
+def show(room,final, weights):
     
     pyplot.figure(figsize=(30.,30.))
     pyplot.title('MCL')
@@ -70,13 +70,14 @@ def show(room,final):
     pyplot.grid(b=True, color='0.75', linestyle='--')
     
     for particle in room:
-        pyplot.gca().add_patch(pyplot.Circle((particle[0],particle[1]),15.,facecolor='#ffb266',edgecolor='#994c00', alpha=0.5))
-        pyplot.gca().add_patch(pyplot.Arrow(particle[0], particle[1], 30*m.cos(particle[2]), 30*m.sin(particle[2]), alpha=1., facecolor='#994c00', edgecolor='#994c00',width=15))
+        if weights[room.index(particle)] < .05:
+            pyplot.gca().add_patch(pyplot.Circle((particle[0],particle[1]),1.5,facecolor='#ffb266',edgecolor='#994c00', alpha=0.5))
+            pyplot.gca().add_patch(pyplot.Arrow(particle[0], particle[1], 3.0*m.cos(particle[2]), 3.0*m.sin(particle[2]), alpha=1., facecolor='#994c00', edgecolor='#994c00',width=1.5))
     
     
     
-    pyplot.gca().add_patch(pyplot.Circle((final[0],final[1]),15.,facecolor='#6666ff',edgecolor='#0000cc', alpha=0.5))
-    pyplot.gca().add_patch(pyplot.Arrow(final[0], final[1], 30*m.cos(final[2]), 30*m.sin(final[2]), alpha=1., facecolor='#000000', edgecolor='#000000',width=15))
+    pyplot.gca().add_patch(pyplot.Circle((final[0],final[1]),1.5,facecolor='#6666ff',edgecolor='#0000cc', alpha=0.5))
+    pyplot.gca().add_patch(pyplot.Arrow(final[0], final[1], 3.0*m.cos(final[2]), 3.0*m.sin(final[2]), alpha=1., facecolor='#000000', edgecolor='#000000',width=1.5))
     
     global IMG_NR
     if IMG_NR == 0:
@@ -145,15 +146,17 @@ def mcl():
         new_prob=np.array([])
         s_weight = np.array([])
         
-        fake_position_by_marker = (100,200,80)
+        fake_position_by_marker = (10,20,8)
 
         for particle in room:
             
-            room[room.index(particle)] = motion_update(particle, (xpos,ypos,angle))
+            
+            motion_updated = motion_update(particle, (xpos,ypos,angle))
             #if position exists:
-            new_prob= np.append(new_prob,gaussian_prob(particle,fake_position_by_marker))
+            new_prob= np.append(new_prob,gaussian_prob(motion_updated,fake_position_by_marker))
             sum_w += new_prob[-1]
-        
+            room[room.index(particle)] = motion_updated
+
         weights = weights*new_prob
         weights = weights / sum_w #normalização
         
@@ -176,14 +179,14 @@ def mcl():
             
         robot=(np.median(x),np.median(y),np.median(teta))
         print(robot)
-        show(room,robot)
+        show(room,robot, weights)
         print('ciclo')
         #room,weights=residual_resampling(weights,room)
         #room,weights = stratified_resample(weights,room)
         if np.var(weights) !=0 :
             if (1/np.var(weights))<(n_particles/2):
                 print("resampled")
-                room,weights = Low_variance_resampling(room,weights)
+                room,weights = stratified_resample(weights,room)
         nome = raw_input()
         
         
